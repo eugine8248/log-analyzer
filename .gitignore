@@ -1,0 +1,32 @@
+# Build output
+bin/
+obj/
+dist/
+*.suo
+*.user
+.vs/
+
+# NuGet
+packages/
+*.nupkg
+.packagesconfig.snapshot
+
+# IDE
+.vscode/
+.idea/
+
+# Design pack raw
+design/design-pack-raw.bin
+design/design-pack-extracted
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs (don't commit personal log samples)
+*.log
+!sample/*.log
+
+# SQLite test DBs
+*.db
+*.db-journal

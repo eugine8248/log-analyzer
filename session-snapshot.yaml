@@ -1,0 +1,30 @@
+project_name: log-analyzer
+approval_mode: true
+framework: winforms-dotnet-framework-4.8
+target_platforms:
+  - windows
+current_phase: QA
+current_specialist: qa
+phases:
+  - Discovery
+  - Design
+  - Build
+  - QA
+  - Package
+completed_specialists:
+  - requirements-gatherer
+  - ux-designer
+  - frontend
+  - backend
+  - database
+  - qa
+pending_specialists: []
+tech_stack:
+  framework: WinForms (.NET Framework 4.8)
+  frontend: WinForms + ScottPlot + custom theming
+  backend: C# in-process (.NET Framework 4.8)
+  database: SQLite (System.Data.SQLite) at %APPDATA%/log-analyzer/cache.db
+dist_path: C:/Users/eugin/projects/log-analyzer/dist/
+github_repo: ""
+last_handoff_summary: "QA COMPLETE. Run #1: 22 automated checks pass, 14 deferred to human visual verification, 0 failures, 2 LOW warnings (deferred features scoped to v0.2). Build clean. App launches. Parser + stats math verified against sample log with planted spikes. Awaiting user approval to proceed to Package phase + GitHub push."
+last_updated: "2026-05-14T04:35:00Z"
