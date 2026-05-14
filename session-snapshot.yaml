@@ -18,18 +18,26 @@ completed_specialists:
   - backend
   - database
   - qa
+  - debugger
 pending_specialists: []
 tech_stack:
   framework: WinForms (.NET Framework 4.8)
-  frontend: WinForms + ScottPlot + custom theming
+  frontend: WinForms + ScottPlot + custom theming + custom titlebar
   backend: C# in-process (.NET Framework 4.8)
   database: SQLite (System.Data.SQLite) at %APPDATA%/log-analyzer/cache.db
 dist_path: C:/Users/eugin/projects/log-analyzer/dist/
 git_initialized: true
 git_initial_commit: "59e1727"
-git_tag: v0.1.0
+git_tags:
+  - v0.1.0
+  - v0.1.1
+  - v0.2.0
 github_repo: "https://github.com/eugine8248/log-analyzer"
-github_release: "https://github.com/eugine8248/log-analyzer/releases/tag/v0.1.0"
-release_asset: "https://github.com/eugine8248/log-analyzer/releases/download/v0.1.0/LogAnzlyzer-v0.1.0-win-x64.zip"
-last_handoff_summary: "PROJECT COMPLETE. All 5 phases finished. Source pushed to GitHub. v0.1.0 tagged and released with zipped binaries (518 KB) attached. PAT used for push has been recommended for revocation."
-last_updated: "2026-05-14T06:53:00Z"
+github_releases:
+  - "https://github.com/eugine8248/log-analyzer/releases/tag/v0.1.0"
+  - "https://github.com/eugine8248/log-analyzer/releases/tag/v0.1.1"
+  - "https://github.com/eugine8248/log-analyzer/releases/tag/v0.2.0"
+debug_sessions: 2
+last_debug_summary: "Session #2 — v0.2 feature work (4 features): drag-select timestamp bounds, custom titlebar, recent files menu, export PNG/CSV. All built and packaged."
+last_handoff_summary: "v0.2.0 released. 4 new features added per approved scope. Build clean. PAT reminder still applies."
+last_updated: "2026-05-14T07:35:00Z"

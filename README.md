@@ -86,10 +86,10 @@ The `tokens.css` in there is the canonical color/typography source.
 ## Roadmap
 
 - [x] v0.1 — basic open/parse/chart/table/stats with theme toggle
-- [ ] v0.2 — drag-select bounds in Timestamp dialog (currently regex-only)
-- [ ] v0.3 — recent files, export chart as PNG, export data as CSV
-- [ ] v0.4 — large-file streaming optimizations (>1 GB)
-- [ ] v0.5 — auto-update from GitHub Releases
+- [x] v0.1.1 — UI fixes (hero baseline, span format, settings layout)
+- [x] v0.2 — drag-select timestamp bounds, custom titlebar, recent files, export PNG/CSV
+- [ ] v0.3 — large-file streaming optimizations (>1 GB), multi-file comparison view
+- [ ] v0.4 — auto-update from GitHub Releases, code-signing
 
 ## Licence
 

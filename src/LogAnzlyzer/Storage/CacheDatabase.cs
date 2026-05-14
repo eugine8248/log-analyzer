@@ -90,6 +90,57 @@ CREATE TABLE IF NOT EXISTS summary_stats (
   min       REAL,
   max       REAL
 );
+
+CREATE TABLE IF NOT EXISTS recent_files (
+  path       TEXT PRIMARY KEY,
+  opened_at  TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_recent_files_opened ON recent_files(opened_at DESC);
 ";
+
+        public static void AddRecentFile(string path)
+        {
+            try
+            {
+                using (var conn = Open())
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText =
+                        "INSERT INTO recent_files(path, opened_at) VALUES(@p, datetime('now')) " +
+                        "ON CONFLICT(path) DO UPDATE SET opened_at = datetime('now')";
+                    cmd.Parameters.AddWithValue("@p", path);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            catch { /* non-fatal */ }
+        }
+
+        public static System.Collections.Generic.List<string> GetRecentFiles(int limit = 10)
+        {
+            var list = new System.Collections.Generic.List<string>();
+            try
+            {
+                using (var conn = Open())
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT path FROM recent_files ORDER BY opened_at DESC LIMIT @n";
+                    cmd.Parameters.AddWithValue("@n", limit);
+                    using (var rdr = cmd.ExecuteReader())
+                        while (rdr.Read()) list.Add(rdr.GetString(0));
+                }
+            }
+            catch { /* return whatever we have */ }
+            return list;
+        }
+
+        public static void ClearRecentFiles()
+        {
+            using (var conn = Open())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "DELETE FROM recent_files";
+                cmd.ExecuteNonQuery();
+            }
+        }
     }
 }

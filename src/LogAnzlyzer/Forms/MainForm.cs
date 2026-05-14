@@ -15,11 +15,14 @@ namespace LogAnzlyzer.Forms
 {
     public sealed class MainForm : Form
     {
+        private readonly CustomTitleBar _titleBar = new CustomTitleBar();
         private readonly MenuStrip _menu = new MenuStrip();
         private readonly ClosableTabControl _tabs = new ClosableTabControl { Dock = DockStyle.Fill };
         private readonly DropZonePanel _emptyDrop = new DropZonePanel { Width = 560, Height = 200 };
         private readonly Panel _emptyHost = new Panel { Dock = DockStyle.Fill };
         private readonly ThemedStatusBar _status = new ThemedStatusBar();
+
+        private const int RESIZE_BORDER = 6;   // pixel-thick edge for resize hit-test
 
         // Per-tab state
         private readonly Dictionary<TabPage, TabState> _tabState = new Dictionary<TabPage, TabState>();
@@ -32,6 +35,9 @@ namespace LogAnzlyzer.Forms
             StartPosition = FormStartPosition.CenterScreen;
             MinimumSize = new Size(900, 560);
             AllowDrop = true;
+            FormBorderStyle = FormBorderStyle.None;   // custom titlebar takes over
+            DoubleBuffered = true;
+            _titleBar.HostForm = this;
             DragEnter += (s, e) => e.Effect = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
             DragDrop += (s, e) =>
             {
@@ -42,10 +48,13 @@ namespace LogAnzlyzer.Forms
             BuildMenu();
             BuildEmptyState();
 
-            Controls.Add(_tabs);
-            Controls.Add(_emptyHost);
-            Controls.Add(_status);
-            Controls.Add(_menu);
+            // Dock order matters: bottom/top docks claim space first;
+            // Fill children must be added LAST so they pick up remaining space.
+            Controls.Add(_status);     // bottom
+            Controls.Add(_tabs);       // fill
+            Controls.Add(_emptyHost);  // fill (overlay)
+            Controls.Add(_menu);       // top (below titlebar)
+            Controls.Add(_titleBar);   // top (above menu — added last so it's first dock)
             MainMenuStrip = _menu;
 
             _tabs.TabCloseRequested += (s, idx) => CloseTab(idx);
@@ -59,11 +68,15 @@ namespace LogAnzlyzer.Forms
         }
 
         // ----- chrome -----
+        private ToolStripMenuItem _recentMenu;
         private void BuildMenu()
         {
             var fileMenu = new ToolStripMenuItem("&File");
             fileMenu.DropDownItems.Add(MakeMenu("&Open...", Keys.Control | Keys.O, MenuOpen));
             fileMenu.DropDownItems.Add(MakeMenu("&Close Tab", Keys.Control | Keys.W, (s, e) => CloseTab(_tabs.SelectedIndex)));
+            _recentMenu = new ToolStripMenuItem("Open &Recent");
+            fileMenu.DropDownItems.Add(_recentMenu);
+            fileMenu.DropDownOpening += (s, e) => RebuildRecentMenu();
             fileMenu.DropDownItems.Add(new ToolStripSeparator());
             fileMenu.DropDownItems.Add(MakeMenu("E&xit", Keys.None, (s, e) => Close()));
 
@@ -87,6 +100,27 @@ namespace LogAnzlyzer.Forms
             var item = new ToolStripMenuItem(text, null, handler);
             if (shortcut != Keys.None) item.ShortcutKeys = shortcut;
             return item;
+        }
+
+        private void RebuildRecentMenu()
+        {
+            _recentMenu.DropDownItems.Clear();
+            var recent = Storage.CacheDatabase.GetRecentFiles(10);
+            if (recent.Count == 0)
+            {
+                var empty = new ToolStripMenuItem("(no recent files)") { Enabled = false };
+                _recentMenu.DropDownItems.Add(empty);
+                return;
+            }
+            foreach (var path in recent)
+            {
+                var p = path; // capture
+                var label = System.IO.Path.GetFileName(p) + "    " + System.IO.Path.GetDirectoryName(p);
+                var item = new ToolStripMenuItem(label, null, (s, e) => OpenLog(p));
+                _recentMenu.DropDownItems.Add(item);
+            }
+            _recentMenu.DropDownItems.Add(new ToolStripSeparator());
+            _recentMenu.DropDownItems.Add(new ToolStripMenuItem("&Clear recent files", null, (s, e) => Storage.CacheDatabase.ClearRecentFiles()));
         }
 
         private void BuildEmptyState()
@@ -152,6 +186,9 @@ namespace LogAnzlyzer.Forms
             _tabs.SelectedTab = page;
             ShowEmptyState(false);
             UpdateStatus("Parsed", path, log.Entries.Count);
+
+            // 5) Remember this file in Recent.
+            Storage.CacheDatabase.AddRecentFile(path);
         }
 
         private TabPage BuildTabPage(ParsedLog log, DelayStats stats, int[] hist)
@@ -231,8 +268,47 @@ namespace LogAnzlyzer.Forms
             _menu.BackColor = t.Menubar;
             _menu.ForeColor = t.Text;
             _emptyHost.BackColor = t.Bg;
+            _titleBar.Invalidate();
             foreach (TabPage p in _tabs.TabPages) p.BackColor = t.Bg;
             Invalidate(true);
+        }
+
+        // ----- borderless window: hit-test for caption (drag) and edges (resize) -----
+        protected override void WndProc(ref Message m)
+        {
+            const int WM_NCHITTEST = 0x0084;
+            const int HTCAPTION = 2;
+            const int HTLEFT = 10, HTRIGHT = 11, HTTOP = 12, HTTOPLEFT = 13, HTTOPRIGHT = 14;
+            const int HTBOTTOM = 15, HTBOTTOMLEFT = 16, HTBOTTOMRIGHT = 17;
+
+            if (m.Msg == WM_NCHITTEST && WindowState != FormWindowState.Maximized)
+            {
+                int x = (short)((long)m.LParam & 0xFFFF);
+                int y = (short)(((long)m.LParam >> 16) & 0xFFFF);
+                var pt = new Point(x, y);
+                var local = PointToClient(pt);
+
+                bool top    = local.Y <= RESIZE_BORDER;
+                bool bottom = local.Y >= ClientSize.Height - RESIZE_BORDER;
+                bool left   = local.X <= RESIZE_BORDER;
+                bool right  = local.X >= ClientSize.Width - RESIZE_BORDER;
+
+                if (top && left)     { m.Result = (IntPtr)HTTOPLEFT;     return; }
+                if (top && right)    { m.Result = (IntPtr)HTTOPRIGHT;    return; }
+                if (bottom && left)  { m.Result = (IntPtr)HTBOTTOMLEFT;  return; }
+                if (bottom && right) { m.Result = (IntPtr)HTBOTTOMRIGHT; return; }
+                if (top)             { m.Result = (IntPtr)HTTOP;         return; }
+                if (bottom)          { m.Result = (IntPtr)HTBOTTOM;      return; }
+                if (left)            { m.Result = (IntPtr)HTLEFT;        return; }
+                if (right)           { m.Result = (IntPtr)HTRIGHT;       return; }
+
+                if (_titleBar.ContainsCaptionPoint(pt))
+                {
+                    m.Result = (IntPtr)HTCAPTION;
+                    return;
+                }
+            }
+            base.WndProc(ref m);
         }
 
         private sealed class TabState

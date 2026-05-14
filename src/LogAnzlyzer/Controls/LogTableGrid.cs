@@ -32,6 +32,54 @@ namespace LogAnzlyzer.Controls
             BuildColumns();
             ApplyTheme();
             ThemeManager.ThemeChanged += (s, e) => { ApplyTheme(); Invalidate(); };
+
+            var menu = new ContextMenuStrip();
+            menu.Items.Add("Export to CSV...", null, (s, e) => ExportCsv());
+            menu.Items.Add("Copy raw line", null, (s, e) => CopyRaw());
+            ContextMenuStrip = menu;
+        }
+
+        private void ExportCsv()
+        {
+            using (var sfd = new SaveFileDialog())
+            {
+                sfd.Filter = "CSV file (*.csv)|*.csv";
+                sfd.FileName = "log-data-" + System.DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".csv";
+                if (sfd.ShowDialog(FindForm()) != DialogResult.OK) return;
+                try
+                {
+                    using (var sw = new System.IO.StreamWriter(sfd.FileName, false, new System.Text.UTF8Encoding(true)))
+                    {
+                        sw.WriteLine("line_number,timestamp,delay_ms,severity,raw_line");
+                        foreach (var p in _entries)
+                        {
+                            string raw = (p.RawLine ?? "").Replace("\"", "\"\"");
+                            sw.WriteLine(string.Join(",",
+                                p.LineNumber,
+                                p.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff"),
+                                p.DelayMs.HasValue ? p.DelayMs.Value.ToString("0.000") : "",
+                                p.Severity ?? "",
+                                "\"" + raw + "\""));
+                        }
+                    }
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "explorer.exe",
+                        Arguments = "/select,\"" + sfd.FileName + "\"",
+                        UseShellExecute = true
+                    });
+                }
+                catch (System.Exception ex)
+                {
+                    MessageBox.Show(FindForm(), "Failed to export:\n" + ex.Message, "Export error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void CopyRaw()
+        {
+            if (CurrentRow == null || CurrentRow.Index < 0 || CurrentRow.Index >= _entries.Count) return;
+            try { Clipboard.SetText(_entries[CurrentRow.Index].RawLine ?? ""); } catch { }
         }
 
         public void SetEntries(IEnumerable<ParsedEntry> entries)

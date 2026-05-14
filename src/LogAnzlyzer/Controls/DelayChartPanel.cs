@@ -23,6 +23,39 @@ namespace LogAnzlyzer.Controls
             Dock = DockStyle.Fill;
             ApplyTheme();
             ThemeManager.ThemeChanged += (s, e) => { ApplyTheme(); _plot.Refresh(); };
+            BuildContextMenu();
+        }
+
+        private void BuildContextMenu()
+        {
+            var menu = new ContextMenuStrip();
+            menu.Items.Add("Save chart as PNG...", null, (s, e) => SavePng());
+            menu.Items.Add("Reset zoom", null, (s, e) => { _plot.Plot.AxisAuto(); _plot.Refresh(); });
+            _plot.ContextMenuStrip = menu;
+        }
+
+        private void SavePng()
+        {
+            using (var sfd = new SaveFileDialog())
+            {
+                sfd.Filter = "PNG image (*.png)|*.png";
+                sfd.FileName = "delay-chart-" + System.DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".png";
+                if (sfd.ShowDialog(FindForm()) != DialogResult.OK) return;
+                try
+                {
+                    _plot.Plot.SaveFig(sfd.FileName);
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "explorer.exe",
+                        Arguments = "/select,\"" + sfd.FileName + "\"",
+                        UseShellExecute = true
+                    });
+                }
+                catch (System.Exception ex)
+                {
+                    MessageBox.Show(FindForm(), "Failed to save chart:\n" + ex.Message, "Save error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
         }
 
         public void Render(IList<ParsedEntry> entries, DelayStats stats)

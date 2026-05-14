@@ -7,14 +7,18 @@ using LogAnzlyzer.Theme;
 namespace LogAnzlyzer.Forms
 {
     // Modal that shows the first 5 lines of the log with the auto-detected
-    // timestamp portion highlighted. User can confirm or click "Adjust" to
-    // override the regex. Power-user: edit the regex directly.
+    // timestamp portion highlighted. User can confirm, click "Adjust" to
+    // enter drag-select mode (click and drag on any line to pick the
+    // timestamp bounds), or directly edit the regex for power users.
     public sealed class TimestampDialog : Form
     {
         public string SelectedRegex { get; private set; }
 
         private readonly TimestampDetectionResult _det;
+        private readonly LinesPreview _preview;
         private readonly TextBox _regexBox = new TextBox();
+        private readonly Label _legend = new Label();
+        private bool _adjustMode;
 
         public TimestampDialog(string fileName, TimestampDetectionResult det)
         {
@@ -26,10 +30,12 @@ namespace LogAnzlyzer.Forms
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = false;
             MaximizeBox = false;
-            Width = 640;
-            Height = 460;
+            ClientSize = new Size(640, 460);
             ApplyTheme();
             ThemeManager.ThemeChanged += (s, e) => { ApplyTheme(); Invalidate(true); };
+
+            _preview = new LinesPreview(_det) { Top = 64, Left = 18, Width = 600, Height = 140 };
+            _preview.BoundsAdjusted += OnBoundsAdjusted;
 
             BuildContents(fileName);
         }
@@ -40,43 +46,35 @@ namespace LogAnzlyzer.Forms
 
             var header = new Label
             {
-                Text = "We auto-detected this timestamp. Confirm it matches every line.",
-                Font = Fonts.Body,
-                ForeColor = t.Text,
+                Text = "We auto-detected this timestamp. Confirm it matches every line, or click Adjust to drag-select.",
+                Font = Fonts.Body, ForeColor = t.Text,
+                Top = 16, Left = 18, Width = 604, Height = 38,
                 AutoSize = false,
-                Top = 16, Left = 18, Width = 600, Height = 20,
             };
             Controls.Add(header);
 
             var meta = new Label
             {
                 Text = $"File  {fileName}  ·  showing first {_det.SampleLines.Count}",
-                Font = Fonts.Tiny,
-                ForeColor = t.TextMuted,
+                Font = Fonts.Tiny, ForeColor = t.TextMuted,
+                Top = 44, Left = 18, Width = 604, Height = 16,
                 AutoSize = false,
-                Top = 38, Left = 18, Width = 600, Height = 16,
             };
             Controls.Add(meta);
 
-            // Lines preview panel — custom-painted
-            var preview = new LinesPreview(_det) { Top = 64, Left = 18, Width = 600, Height = 140 };
-            Controls.Add(preview);
+            Controls.Add(_preview);
 
-            var legend = new Label
-            {
-                Text = $"detected timestamp · matched {_det.Matched}/{_det.TotalSampled} lines",
-                Font = Fonts.Tiny,
-                ForeColor = t.TextMuted,
-                AutoSize = false,
-                Top = 212, Left = 18, Width = 600, Height = 16,
-            };
-            Controls.Add(legend);
+            _legend.Text = $"Detected timestamp · matched {_det.Matched}/{_det.TotalSampled} lines";
+            _legend.Font = Fonts.Tiny;
+            _legend.ForeColor = t.TextMuted;
+            _legend.Top = 212; _legend.Left = 18; _legend.Width = 604; _legend.Height = 16;
+            _legend.AutoSize = false;
+            Controls.Add(_legend);
 
             var regexLabel = new Label
             {
                 Text = "Regex (power-user override)",
-                Font = Fonts.Tiny,
-                ForeColor = t.TextMuted,
+                Font = Fonts.Tiny, ForeColor = t.TextMuted,
                 Top = 240, Left = 18, AutoSize = true,
             };
             Controls.Add(regexLabel);
@@ -86,30 +84,58 @@ namespace LogAnzlyzer.Forms
             _regexBox.BackColor = t.InputBg;
             _regexBox.ForeColor = t.Text;
             _regexBox.BorderStyle = BorderStyle.FixedSingle;
-            _regexBox.Top = 260; _regexBox.Left = 18; _regexBox.Width = 600;
+            _regexBox.Top = 260; _regexBox.Left = 18; _regexBox.Width = 604;
             Controls.Add(_regexBox);
 
-            // Buttons
-            var btnCancel = new Button { Text = "Cancel", Top = 370, Left = 380, Width = 80, Height = 30, FlatStyle = FlatStyle.Flat };
+            // Buttons (footer)
+            int btnY = ClientSize.Height - 60;
+            var btnCancel = new Button { Text = "Cancel", Top = btnY, Width = 90, Height = 32, FlatStyle = FlatStyle.Flat };
+            ApplyButtonStyle(btnCancel, kind: "ghost");
             btnCancel.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
-            ApplyButtonStyle(btnCancel, ghost: true);
 
-            var btnAdjust = new Button { Text = "Adjust", Top = 370, Left = 466, Width = 60, Height = 30, FlatStyle = FlatStyle.Flat };
-            btnAdjust.Click += (s, e) => MessageBox.Show(this, "Drag-select adjustment is not yet implemented in v0.1 — edit the regex directly below the preview for now.", "Adjust", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            ApplyButtonStyle(btnAdjust, ghost: false, secondary: true);
+            var btnAdjust = new Button { Text = "Adjust", Top = btnY, Width = 90, Height = 32, FlatStyle = FlatStyle.Flat };
+            ApplyButtonStyle(btnAdjust, kind: "secondary");
+            btnAdjust.Click += (s, e) => ToggleAdjust(btnAdjust);
 
-            var btnUse = new Button { Text = "Use this pattern", Top = 370, Left = 532, Width = 90, Height = 30, FlatStyle = FlatStyle.Flat };
+            var btnUse = new Button { Text = "Use this pattern", Top = btnY, Width = 140, Height = 32, FlatStyle = FlatStyle.Flat };
+            ApplyButtonStyle(btnUse, kind: "primary");
             btnUse.Click += (s, e) =>
             {
                 SelectedRegex = _regexBox.Text;
                 DialogResult = DialogResult.OK;
                 Close();
             };
-            ApplyButtonStyle(btnUse, ghost: false);
+
+            // right-align footer buttons
+            btnUse.Left    = ClientSize.Width - 140 - 18;
+            btnAdjust.Left = btnUse.Left - 90 - 8;
+            btnCancel.Left = btnAdjust.Left - 90 - 8;
 
             Controls.Add(btnCancel); Controls.Add(btnAdjust); Controls.Add(btnUse);
             AcceptButton = btnUse;
             CancelButton = btnCancel;
+        }
+
+        private void ToggleAdjust(Button btn)
+        {
+            _adjustMode = !_adjustMode;
+            _preview.AdjustMode = _adjustMode;
+            btn.Text = _adjustMode ? "Done" : "Adjust";
+            _legend.Text = _adjustMode
+                ? "Drag across any line to select the timestamp bounds. Pattern updates live."
+                : $"Detected timestamp · matched {_det.Matched}/{_det.TotalSampled} lines";
+            _legend.ForeColor = _adjustMode ? ThemeManager.Current.Accent : ThemeManager.Current.TextMuted;
+        }
+
+        private void OnBoundsAdjusted(int start, int end, string sourceLine)
+        {
+            if (start >= end || string.IsNullOrEmpty(sourceLine)) return;
+            _det.StartIndex = start;
+            _det.EndIndex = end;
+            string regex = TimestampDetector.BuildRegexForBounds(sourceLine, start, end);
+            _det.Regex = regex;
+            _regexBox.Text = regex;
+            SelectedRegex = regex;
         }
 
         private void ApplyTheme()
@@ -119,38 +145,100 @@ namespace LogAnzlyzer.Forms
             ForeColor = t.Text;
         }
 
-        private void ApplyButtonStyle(Button b, bool ghost, bool secondary = false)
+        private void ApplyButtonStyle(Button b, string kind)
         {
             var t = ThemeManager.Current;
-            b.FlatAppearance.BorderSize = secondary ? 1 : 0;
+            b.FlatAppearance.BorderSize = kind == "secondary" ? 1 : 0;
             b.FlatAppearance.BorderColor = t.Border;
-            if (ghost)
+            switch (kind)
             {
-                b.BackColor = Color.Transparent;
-                b.ForeColor = t.TextMuted;
-            }
-            else if (secondary)
-            {
-                b.BackColor = t.PanelElev;
-                b.ForeColor = t.Text;
-            }
-            else
-            {
-                b.BackColor = t.Accent;
-                b.ForeColor = t.AccentFg;
+                case "ghost":     b.BackColor = Color.Transparent; b.ForeColor = t.TextMuted; break;
+                case "secondary": b.BackColor = t.PanelElev; b.ForeColor = t.Text; break;
+                default:          b.BackColor = t.Accent; b.ForeColor = t.AccentFg; break;
             }
         }
 
-        // Custom panel that paints the 5 sample lines with highlighted timestamps.
+        // Custom panel that paints the 5 sample lines with a highlighted timestamp.
+        // In Adjust mode, the user can click-and-drag on any line to redefine the bounds.
         private sealed class LinesPreview : Panel
         {
+            public bool AdjustMode { get; set; }
+            public event Action<int, int, string> BoundsAdjusted;
+
             private readonly TimestampDetectionResult _det;
+            private const int LeftGutter = 36;   // line number column
+            private const int RowHeight = 22;
+            private const int FirstRowY = 6;
+
+            private bool _dragging;
+            private int _dragStartChar;
+            private int _dragRowIdx;
+
             public LinesPreview(TimestampDetectionResult det)
             {
                 _det = det;
                 DoubleBuffered = true;
                 BorderStyle = BorderStyle.FixedSingle;
             }
+
+            // -------- mouse: hit-test → row index + char column --------
+            protected override void OnMouseDown(MouseEventArgs e)
+            {
+                if (!AdjustMode || e.Button != MouseButtons.Left) return;
+                int row = (e.Y - FirstRowY) / RowHeight;
+                if (row < 0 || row >= _det.SampleLines.Count) return;
+                int ch = HitTestChar(_det.SampleLines[row], e.X);
+                if (ch < 0) return;
+                _dragging = true;
+                _dragRowIdx = row;
+                _dragStartChar = ch;
+                _det.StartIndex = ch;
+                _det.EndIndex = ch + 1;
+                Cursor = Cursors.IBeam;
+                Invalidate();
+            }
+            protected override void OnMouseMove(MouseEventArgs e)
+            {
+                if (!_dragging) return;
+                int ch = HitTestChar(_det.SampleLines[_dragRowIdx], e.X);
+                if (ch < 0) return;
+                int s = System.Math.Min(_dragStartChar, ch);
+                int en = System.Math.Max(_dragStartChar, ch) + 1;
+                _det.StartIndex = s;
+                _det.EndIndex = en;
+                Invalidate();
+            }
+            protected override void OnMouseUp(MouseEventArgs e)
+            {
+                if (!_dragging) return;
+                _dragging = false;
+                Cursor = Cursors.Default;
+                if (_det.StartIndex.HasValue && _det.EndIndex.HasValue)
+                {
+                    BoundsAdjusted?.Invoke(_det.StartIndex.Value, _det.EndIndex.Value, _det.SampleLines[_dragRowIdx]);
+                }
+            }
+
+            // Hit-test: find character index whose painted glyph contains x.
+            // Uses TextRenderer.MeasureText with the same font as paint.
+            private int HitTestChar(string line, int x)
+            {
+                if (x < LeftGutter) return -1;
+                int rel = x - LeftGutter;
+                using (var f = Fonts.Mono)
+                using (var g = CreateGraphics())
+                {
+                    int prevW = 0;
+                    for (int i = 1; i <= line.Length; i++)
+                    {
+                        int w = TextRenderer.MeasureText(g, line.Substring(0, i), f, new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding).Width;
+                        if (rel <= (prevW + w) / 2) return i - 1;
+                        prevW = w;
+                    }
+                    return line.Length - 1;
+                }
+            }
+
             protected override void OnPaint(PaintEventArgs e)
             {
                 base.OnPaint(e);
@@ -158,46 +246,54 @@ namespace LogAnzlyzer.Forms
                 var t = ThemeManager.Current;
                 using (var b = new SolidBrush(t.InputBg)) g.FillRectangle(b, ClientRectangle);
 
-                int y = 6;
+                int y = FirstRowY;
                 using (var f = Fonts.Mono)
                 {
                     for (int i = 0; i < _det.SampleLines.Count; i++)
                     {
                         var line = _det.SampleLines[i];
-                        // Line number
-                        TextRenderer.DrawText(g, (i + 1).ToString(), f, new Point(8, y), t.TextFaint);
+                        TextRenderer.DrawText(g, (i + 1).ToString(), f, new Point(8, y), t.TextFaint, TextFormatFlags.NoPadding);
 
-                        int x = 36;
+                        int x = LeftGutter;
                         if (_det.StartIndex.HasValue && _det.EndIndex.HasValue
                             && _det.StartIndex.Value <= line.Length && _det.EndIndex.Value <= line.Length)
                         {
-                            // before
-                            int before = _det.StartIndex.Value;
-                            string a = line.Substring(0, before);
-                            int len = TextRenderer.MeasureText(g, a, f).Width;
-                            TextRenderer.DrawText(g, a, f, new Point(x, y), t.Text);
-                            x += len;
+                            int s = _det.StartIndex.Value;
+                            int en = _det.EndIndex.Value;
 
-                            // highlighted timestamp
-                            string b1 = line.Substring(before, _det.EndIndex.Value - before);
-                            int blen = TextRenderer.MeasureText(g, b1, f).Width;
-                            using (var hl = new SolidBrush(t.AccentSoft))
-                                g.FillRectangle(hl, x - 1, y - 1, blen + 2, 18);
-                            using (var pen = new Pen(t.Accent))
-                                g.DrawRectangle(pen, x - 1, y - 1, blen + 2, 18);
-                            TextRenderer.DrawText(g, b1, f, new Point(x, y), t.Accent);
-                            x += blen;
+                            string before = line.Substring(0, s);
+                            int beforeW = TextRenderer.MeasureText(g, before, f, new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding).Width;
+                            TextRenderer.DrawText(g, before, f, new Point(x, y), t.Text, TextFormatFlags.NoPadding);
+                            x += beforeW;
 
-                            // after
-                            string c = line.Substring(_det.EndIndex.Value);
-                            TextRenderer.DrawText(g, c, f, new Point(x, y), t.Text);
+                            string sel = line.Substring(s, en - s);
+                            int selW = TextRenderer.MeasureText(g, sel, f, new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding).Width;
+                            // Only highlight if this row matches detection's row OR if not in adjust mode (apply detection to all)
+                            if (!AdjustMode || i == _dragRowIdx || _dragRowIdx == 0 && !_dragging)
+                            {
+                                using (var hl = new SolidBrush(t.AccentSoft))
+                                    g.FillRectangle(hl, x - 1, y - 1, selW + 2, RowHeight - 4);
+                                using (var pen = new Pen(t.Accent))
+                                    g.DrawRectangle(pen, x - 1, y - 1, selW + 2, RowHeight - 4);
+                            }
+                            TextRenderer.DrawText(g, sel, f, new Point(x, y), t.Accent, TextFormatFlags.NoPadding);
+                            x += selW;
+
+                            string after = line.Substring(en);
+                            TextRenderer.DrawText(g, after, f, new Point(x, y), t.Text, TextFormatFlags.NoPadding);
                         }
                         else
                         {
-                            TextRenderer.DrawText(g, line, f, new Point(x, y), t.Text);
+                            TextRenderer.DrawText(g, line, f, new Point(x, y), t.Text, TextFormatFlags.NoPadding);
                         }
-                        y += 22;
+                        y += RowHeight;
                     }
+                }
+
+                if (AdjustMode)
+                {
+                    using (var pen = new Pen(t.Accent, 1.5f))
+                        g.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
                 }
             }
         }

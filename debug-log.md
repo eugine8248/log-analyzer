@@ -62,3 +62,49 @@
 
 ## Processes touched
 renderer (no main process or DB changes)
+
+---
+
+## Session #2 — 2026-05-14 (v0.2 feature work, not bug-fixes)
+**Trigger:** On-demand from PM — v0.2 cycle approved with full 4-feature scope
+**Framework:** WinForms / .NET Framework 4.8
+**Features added:** 4
+
+### [FEAT-A] Drag-select timestamp bounds (replaces v0.1 placeholder)
+- **File:** `src/LogAnzlyzer/Forms/TimestampDialog.cs` (rewritten)
+- **What:** `Adjust` toggles `LinesPreview.AdjustMode`. While on, mouse-down captures a character index; drag tracks a selection range; mouse-up calls `TimestampDetector.BuildRegexForBounds()` and pushes the new regex into the textbox.
+- **Hit-test:** `HitTestChar(line, x)` walks character widths via `TextRenderer.MeasureText` with `NoPadding` so the picked index matches the painted glyph centre.
+
+### [FEAT-B] Custom titlebar
+- **New file:** `src/LogAnzlyzer/Controls/CustomTitleBar.cs`
+- **Modified:** `src/LogAnzlyzer/Forms/MainForm.cs`
+- **What:** `FormBorderStyle.None`; titlebar paints logo + title + themed min/max/restore/close buttons. `MainForm.WndProc` overrides `WM_NCHITTEST` to return `HTCAPTION` for the titlebar drag zone, and `HTLEFT`/`HTRIGHT`/`HTTOP`/`HTBOTTOM` (and the four corners) for the outer 6px ring so the OS still gives us native resize cursors and behaviour. Double-click on titlebar toggles maximize.
+- **Trade-off:** loses Windows snap layouts (the multi-monitor zone overlay on hover-max). Acceptable for v0.2; v0.3 can reintroduce via `WM_NCCALCSIZE` if needed.
+
+### [FEAT-C] Recent files
+- **Modified:** `src/LogAnzlyzer/Storage/CacheDatabase.cs`, `src/LogAnzlyzer/Forms/MainForm.cs`
+- **What:** New `recent_files(path PRIMARY KEY, opened_at)` table with descending index on `opened_at`. `AddRecentFile` uses `ON CONFLICT(path) DO UPDATE SET opened_at = datetime('now')` so re-opening bumps the entry. `File → Open Recent` rebuilds on `DropDownOpening` to stay fresh. Includes `Clear recent files` action.
+
+### [FEAT-D] Export chart PNG / data CSV
+- **Modified:** `src/LogAnzlyzer/Controls/DelayChartPanel.cs`, `src/LogAnzlyzer/Controls/LogTableGrid.cs`
+- **What:** Right-click on chart → `Save chart as PNG...` (uses `_plot.Plot.SaveFig(path)`) + `Reset zoom`. Right-click on table → `Export to CSV...` (UTF-8 BOM-prefixed, RFC-4180 quoting on raw_line) + `Copy raw line`. Both reveal in Explorer after save.
+
+## Verification
+- `dotnet build`: 0 warnings, 0 errors
+- App launches (3s smoke test, custom titlebar visible)
+- `dotnet publish -c Release`: succeeded
+- Recent-files SQL verified by code review (trivial CRUD with try/catch wrappers)
+- Drag-select / titlebar / context menus need human visual sign-off
+
+## Files modified
+- `src/LogAnzlyzer/Forms/TimestampDialog.cs` (FEAT-A — rewrite)
+- `src/LogAnzlyzer/Forms/MainForm.cs` (FEAT-B + FEAT-C wiring)
+- `src/LogAnzlyzer/Controls/CustomTitleBar.cs` (FEAT-B — new file)
+- `src/LogAnzlyzer/Storage/CacheDatabase.cs` (FEAT-C — schema + API)
+- `src/LogAnzlyzer/Controls/DelayChartPanel.cs` (FEAT-D — PNG export)
+- `src/LogAnzlyzer/Controls/LogTableGrid.cs` (FEAT-D — CSV export, copy)
+- `src/LogAnzlyzer/LogAnzlyzer.csproj` (version 0.1.0 → 0.2.0)
+- `README.md` (roadmap update)
+
+## Processes touched
+renderer (titlebar, dialogs, controls), storage (new table), main (WndProc override)
