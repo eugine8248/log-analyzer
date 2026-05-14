@@ -78,6 +78,8 @@ namespace LogAnzlyzer.Forms
             fileMenu.DropDownItems.Add(_recentMenu);
             fileMenu.DropDownOpening += (s, e) => RebuildRecentMenu();
             fileMenu.DropDownItems.Add(new ToolStripSeparator());
+            fileMenu.DropDownItems.Add(MakeMenu("&Compare logs...", Keys.Control | Keys.Shift | Keys.C, (s, e) => OpenCompareDialog()));
+            fileMenu.DropDownItems.Add(new ToolStripSeparator());
             fileMenu.DropDownItems.Add(MakeMenu("E&xit", Keys.None, (s, e) => Close()));
 
             var viewMenu = new ToolStripMenuItem("&View");
@@ -155,25 +157,9 @@ namespace LogAnzlyzer.Forms
                 regex = dlg.SelectedRegex;
             }
 
-            // 2) Parse the file (sync for now — wrap in Task for big files).
-            var parser = new LogParser(regex);
-            ParsedLog log = null;
-            UpdateStatus("Parsing…", path, null);
-            Cursor = Cursors.WaitCursor;
-            try
-            {
-                log = parser.Parse(path);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(this, "Failed to parse log:\n" + ex.Message, "Parse error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                UpdateStatus("Failed", path, null);
-                return;
-            }
-            finally
-            {
-                Cursor = Cursors.Default;
-            }
+            // 2) Parse — small files inline, large files via cancellable progress dialog.
+            ParsedLog log = ParseWithProgress(path, regex);
+            if (log == null) return;
 
             // 3) Compute stats and tag severities.
             var stats = StatsCalculator.Compute(log.Entries);
@@ -189,6 +175,107 @@ namespace LogAnzlyzer.Forms
 
             // 5) Remember this file in Recent.
             Storage.CacheDatabase.AddRecentFile(path);
+        }
+
+        // Wraps LogParser.Parse: small files run synchronously; large files run in a
+        // ProgressDialog so the UI stays responsive and the user can cancel.
+        private ParsedLog ParseWithProgress(string path, string regex)
+        {
+            var parser = new LogParser(regex);
+            var fi = new FileInfo(path);
+            UpdateStatus("Parsing…", path, null);
+
+            try
+            {
+                if (fi.Length <= LogParser.MemoryThreshold)
+                {
+                    Cursor = Cursors.WaitCursor;
+                    try { return parser.Parse(path); }
+                    finally { Cursor = Cursors.Default; }
+                }
+
+                using (var dlg = new ProgressDialog($"Parsing {Path.GetFileName(path)} ({fi.Length / 1024 / 1024} MB)…"))
+                {
+                    var result = dlg.RunAsync<ParsedLog>((token, prog) => parser.Parse(path, prog, token));
+                    if (result == DialogResult.Cancel || dlg.WorkResult == null)
+                    {
+                        UpdateStatus("Cancelled", path, null);
+                        return null;
+                    }
+                    if (dlg.WorkError != null)
+                    {
+                        MessageBox.Show(this, "Failed to parse log:\n" + dlg.WorkError.Message, "Parse error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        UpdateStatus("Failed", path, null);
+                        return null;
+                    }
+                    return (ParsedLog)dlg.WorkResult;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "Failed to parse log:\n" + ex.Message, "Parse error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus("Failed", path, null);
+                return null;
+            }
+        }
+
+        // ----- compare logs -----
+        private void OpenCompareDialog()
+        {
+            using (var dlg = new CompareDialog())
+            {
+                if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                var paths = dlg.SelectedPaths;
+                var regex = TimestampDetector.DefaultRegex; // assume default for compare batch
+
+                var series = new List<ChartSeries>();
+                var rows = new List<ComparisonStatsPanel.Row>();
+                var palette = new[] {
+                    ThemeManager.Current.Accent,
+                    ThemeManager.Current.P1,
+                    ThemeManager.Current.Median,
+                    ThemeManager.Current.Warning,
+                    ThemeManager.Current.Error,
+                };
+                int colorIdx = 0;
+                foreach (var p in paths)
+                {
+                    ParsedLog log = ParseWithProgress(p, regex);
+                    if (log == null) continue;
+                    var stats = StatsCalculator.Compute(log.Entries);
+                    var color = palette[colorIdx++ % palette.Length];
+                    series.Add(new ChartSeries { Label = Path.GetFileName(p), Entries = log.Entries, Stats = stats, Color = color });
+                    rows.Add(new ComparisonStatsPanel.Row { FilePath = p, Stats = stats, Color = color });
+                    Storage.CacheDatabase.AddRecentFile(p);
+                }
+                if (series.Count < 2)
+                {
+                    MessageBox.Show(this, "Need at least 2 successfully parsed logs to compare.", "Compare", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                var page = BuildComparisonTabPage(series, rows);
+                _tabs.TabPages.Add(page);
+                _tabs.SelectedTab = page;
+                ShowEmptyState(false);
+                UpdateStatus($"Comparing {series.Count} logs", null, null);
+            }
+        }
+
+        private TabPage BuildComparisonTabPage(IList<ChartSeries> series, IList<ComparisonStatsPanel.Row> rows)
+        {
+            var page = new TabPage($"Compare ({series.Count} logs)");
+            page.BackColor = ThemeManager.Current.Bg;
+
+            var sidebar = new ComparisonStatsPanel();
+            sidebar.Set(rows);
+            page.Controls.Add(sidebar);
+
+            var chart = new DelayChartPanel();
+            chart.RenderMulti(series, showReferenceLines: false);
+            page.Controls.Add(chart);
+
+            return page;
         }
 
         private TabPage BuildTabPage(ParsedLog log, DelayStats stats, int[] hist)
@@ -214,7 +301,7 @@ namespace LogAnzlyzer.Forms
             split.Panel1.Controls.Add(chart);
 
             var grid = new LogTableGrid();
-            grid.SetEntries(log.Entries);
+            grid.SetLog(log);
             split.Panel2.Controls.Add(grid);
 
             page.Controls.Add(split);

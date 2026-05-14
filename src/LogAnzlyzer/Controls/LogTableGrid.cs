@@ -7,9 +7,11 @@ using System.Collections.Generic;
 namespace LogAnzlyzer.Controls
 {
     // Themed DataGridView showing parsed entries: line #, timestamp, delay (ms), severity dot, raw line.
+    // Supports lazy raw-line lookup for streaming-parsed (large) logs.
     public sealed class LogTableGrid : DataGridView
     {
         private List<ParsedEntry> _entries = new List<ParsedEntry>();
+        private ParsedLog _log;        // for lazy raw-line lookup when streaming
 
         public LogTableGrid()
         {
@@ -51,9 +53,10 @@ namespace LogAnzlyzer.Controls
                     using (var sw = new System.IO.StreamWriter(sfd.FileName, false, new System.Text.UTF8Encoding(true)))
                     {
                         sw.WriteLine("line_number,timestamp,delay_ms,severity,raw_line");
-                        foreach (var p in _entries)
+                        for (int i = 0; i < _entries.Count; i++)
                         {
-                            string raw = (p.RawLine ?? "").Replace("\"", "\"\"");
+                            var p = _entries[i];
+                            string raw = (p.RawLine ?? (_log != null ? _log.GetRawLine(i) : "")).Replace("\"", "\"\"");
                             sw.WriteLine(string.Join(",",
                                 p.LineNumber,
                                 p.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff"),
@@ -79,7 +82,13 @@ namespace LogAnzlyzer.Controls
         private void CopyRaw()
         {
             if (CurrentRow == null || CurrentRow.Index < 0 || CurrentRow.Index >= _entries.Count) return;
-            try { Clipboard.SetText(_entries[CurrentRow.Index].RawLine ?? ""); } catch { }
+            try
+            {
+                var p = _entries[CurrentRow.Index];
+                string raw = p.RawLine ?? (_log != null ? _log.GetRawLine(CurrentRow.Index) : "");
+                Clipboard.SetText(raw);
+            }
+            catch { }
         }
 
         public void SetEntries(IEnumerable<ParsedEntry> entries)
@@ -87,6 +96,12 @@ namespace LogAnzlyzer.Controls
             _entries = new List<ParsedEntry>(entries);
             RowCount = _entries.Count;
             Invalidate();
+        }
+
+        public void SetLog(ParsedLog log)
+        {
+            _log = log;
+            SetEntries(log?.Entries ?? new List<ParsedEntry>());
         }
 
         private void BuildColumns()
@@ -109,7 +124,7 @@ namespace LogAnzlyzer.Controls
                 case 1: e.Value = p.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff"); break;
                 case 2: e.Value = p.DelayMs.HasValue ? p.DelayMs.Value.ToString("0.0") : ""; break;
                 case 3: e.Value = p.Severity == "p1" ? "●" : (p.Severity == "median" ? "·" : ""); break;
-                case 4: e.Value = p.RawLine; break;
+                case 4: e.Value = p.RawLine ?? (_log != null ? _log.GetRawLine(e.RowIndex) : ""); break;
             }
         }
 

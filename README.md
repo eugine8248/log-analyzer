@@ -88,7 +88,7 @@ The `tokens.css` in there is the canonical color/typography source.
 - [x] v0.1 — basic open/parse/chart/table/stats with theme toggle
 - [x] v0.1.1 — UI fixes (hero baseline, span format, settings layout)
 - [x] v0.2 — drag-select timestamp bounds, custom titlebar, recent files, export PNG/CSV
-- [ ] v0.3 — large-file streaming optimizations (>1 GB), multi-file comparison view
+- [x] v0.3 — large-file streaming with cancellable progress + multi-file comparison view
 - [ ] v0.4 — auto-update from GitHub Releases, code-signing
 
 ## Licence

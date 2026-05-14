@@ -30,3 +30,6 @@ Thumbs.db
 # SQLite test DBs
 *.db
 *.db-journal
+
+# Large generated samples (used for streaming tests, not source)
+sample/large-*.log

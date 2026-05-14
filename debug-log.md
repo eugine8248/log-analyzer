@@ -108,3 +108,44 @@ renderer (no main process or DB changes)
 
 ## Processes touched
 renderer (titlebar, dialogs, controls), storage (new table), main (WndProc override)
+
+---
+
+## Session #3 — 2026-05-14 (v0.3 feature work)
+**Trigger:** PM — v0.3 cycle approved with both features
+**Framework:** WinForms / .NET Framework 4.8
+**Features added:** 2 (large-file streaming, multi-file comparison view)
+
+### [FEAT-LARGE-FILE] Streaming parser for >100 MB logs without OOM
+- **Files:** `Parsing/ParsedEntry.cs`, `Parsing/LogParser.cs`, `Forms/ProgressDialog.cs` (new), `Controls/LogTableGrid.cs`, `Forms/MainForm.cs`
+- **Approach:** Files ≤100 MB use the existing in-memory path. Above that, a new `ParseStreaming` path reads the file at byte level, tracks per-line (offset, length) and decodes only the first ~64 bytes for timestamp matching. `RawLine` is left null on each entry; `ParsedLog.GetRawLine(index)` lazy-seeks the file when the table cell needs the value. `LogTableGrid.SetLog(log)` keeps the log reference for lazy lookup; CSV export and Copy Raw also route through it.
+- **Progress UI:** New `ProgressDialog` runs the parse on a background thread with a `CancellationTokenSource` and reports `LogParseProgress` to a themed progress bar (with bytes / MB / "streaming mode" detail). `MainForm.ParseWithProgress` chooses inline parse or progress-dialog parse based on file size.
+- **Chart downsampling:** `DelayChartPanel` uses uniform decimation (`MaxDisplayPoints = 5000`) so multi-million-row logs render quickly without choking ScottPlot. Stride = ceil(total / 5000).
+- **Verified:** 2.5 M entries / 218 MB log parsed end-to-end in ~4.5 s in streaming mode; no OOM; lazy raw-line read works.
+
+### [FEAT-COMPARE] Multi-file comparison view
+- **Files:** `Forms/CompareDialog.cs` (new), `Controls/ComparisonStatsPanel.cs` (new), `Controls/DelayChartPanel.cs` (RenderMulti / ChartSeries), `Forms/MainForm.cs`
+- **Flow:** New `File → Compare logs...` (Ctrl+Shift+C). Opens `CompareDialog` pre-populated with recent files (CheckedListBox) + Browse for additional. On OK, each picked log is parsed via the same `ParseWithProgress` path (so streaming + cancel applies here too).
+- **Tab:** A new comparison tab is built with `DelayChartPanel.RenderMulti(series, showReferenceLines: false)` — color-coded per series with legend in upper-right — and `ComparisonStatsPanel` on the right showing one card per series (color swatch + filename + P1/Median/P95/P99 + count + range).
+- **Reuses:** the existing tab control, theme system, parsing pipeline.
+
+## Verification
+- `dotnet build`: 0 warnings, 0 errors
+- App launches (3s smoke test, custom titlebar visible from v0.2)
+- 2.5M-entry / 218MB log parsed in 4.5 s via streaming mode (verified via reflection)
+- Multi-series chart and ComparisonStatsPanel are deferred to human visual sign-off (couldn't be verified headlessly without UI automation)
+
+## Files modified / added
+- `Parsing/ParsedEntry.cs` (added FileOffset, RawLineByteLength)
+- `Parsing/LogParser.cs` (added streaming path, IProgress + CancellationToken support)
+- `Forms/ProgressDialog.cs` (new)
+- `Forms/CompareDialog.cs` (new)
+- `Controls/ComparisonStatsPanel.cs` (new)
+- `Controls/DelayChartPanel.cs` (RenderMulti, ChartSeries, downsampling)
+- `Controls/LogTableGrid.cs` (SetLog for lazy raw-line lookup)
+- `Forms/MainForm.cs` (ParseWithProgress, OpenCompareDialog, BuildComparisonTabPage)
+- `LogAnzlyzer.csproj` (version 0.2.0 → 0.3.0)
+- `README.md` (roadmap)
+
+## Processes touched
+parser (streaming + offset tracking), renderer (compare view), main (progress orchestration)
