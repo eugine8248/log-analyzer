@@ -6,7 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>LogAnzlyzer</RootNamespace>
     <AssemblyName>LogAnzlyzer</AssemblyName>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <Authors>eugine8248</Authors>
     <Product>LogAnzlyzer</Product>
     <Description>Desktop log analyzer for performance and stability monitoring</Description>
@@ -23,5 +23,15 @@
   <ItemGroup>
     <Reference Include="System.Data.DataSetExtensions" />
   </ItemGroup>
+
+  <!--
+    Optional code-signing post-build target.
+    Set SIGN_CERT_PATH and SIGN_CERT_PASSWORD env vars before building to enable.
+    Does nothing (no error) when env vars are absent — keeps CI / casual builds running.
+  -->
+  <Target Name="SignOutput" AfterTargets="Build" Condition="'$(SIGN_CERT_PATH)' != '' and '$(Configuration)' == 'Release'">
+    <Exec Command="signtool sign /f &quot;$(SIGN_CERT_PATH)&quot; /p &quot;$(SIGN_CERT_PASSWORD)&quot; /tr http://timestamp.digicert.com /td sha256 /fd sha256 &quot;$(TargetPath)&quot;" />
+    <Message Importance="high" Text="Signed: $(TargetPath)" />
+  </Target>
 
 </Project>

@@ -65,6 +65,22 @@ namespace LogAnzlyzer.Forms
 
             ShowEmptyState(true);
             UpdateStatus("Ready", null, null);
+
+            // Background update check (silent on failure or no-update).
+            Shown += async (s, e) => await TryCheckForUpdate();
+        }
+
+        private async System.Threading.Tasks.Task TryCheckForUpdate()
+        {
+            if (Storage.CacheDatabase.GetSetting("update.check_on_startup", "true") != "true") return;
+            var release = await Updates.UpdateChecker.CheckAsync();
+            if (release == null) return;
+            if (Storage.CacheDatabase.GetSetting("update.skipped_version", "") == release.TagName) return;
+            try
+            {
+                using (var dlg = new UpdateAvailableDialog(release)) dlg.ShowDialog(this);
+            }
+            catch { /* never let an update error kill the app */ }
         }
 
         // ----- chrome -----

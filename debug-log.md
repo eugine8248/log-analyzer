@@ -149,3 +149,49 @@ renderer (titlebar, dialogs, controls), storage (new table), main (WndProc overr
 
 ## Processes touched
 parser (streaming + offset tracking), renderer (compare view), main (progress orchestration)
+
+---
+
+## Session #4 — 2026-05-14 (v0.4 feature work)
+**Trigger:** PM — v0.4 cycle approved with full 3-feature scope (auto-update + CI/CD + signing infra)
+**Framework:** WinForms / .NET Framework 4.8
+**Features added:** 3
+
+### [FEAT-AUTOUPDATE] Auto-update notifier
+- **New files:** `Updates/UpdateChecker.cs`, `Forms/UpdateAvailableDialog.cs`
+- **Modified:** `Forms/MainForm.cs` (Shown event), `LogAnzlyzer.csproj` (Version 0.4.0)
+- **What:** On `MainForm.Shown` (background thread), call `UpdateChecker.CheckAsync()`. It hits `https://api.github.com/repos/eugine8248/log-analyzer/releases/latest`, parses `tag_name` / `name` / `html_url` / `body` via a tiny regex-based extractor (no Newtonsoft dep), compares parsed Version against `Assembly.GetExecutingAssembly().GetName().Version`. Returns the release object only when newer.
+- **Dialog:** `UpdateAvailableDialog` shows release notes (read-only multiline), with three actions: Open download page (`Process.Start(html_url)`), Skip this version (persists `update.skipped_version` in SQLite app_settings — never re-prompts that exact tag), Remind me later.
+- **Settings:** `update.check_on_startup` defaults to `true`. Disable via SQL until v0.5 surfaces a UI toggle.
+- **Verified:** Live API call returns 200, tag_name='v0.3.0' parsed correctly, current 0.4.0.0 → no prompt (expected).
+
+### [FEAT-CICD] GitHub Actions CI/CD
+- **New files:** `.github/workflows/build.yml`, `.github/workflows/release.yml`
+- **build.yml:** Runs on every push and PR to main. Sets up .NET 8 SDK on windows-latest, runs `dotnet restore`, `dotnet build -c Debug` and `-c Release` both with `-warnaserror`, then a smoke test that loads the assembly via reflection and asserts that 5 critical types exist (`MainForm`, `LogParser`, `StatsCalculator`, `CacheDatabase`, `UpdateChecker`). Catches missing references / accidental deletions before tag.
+- **release.yml:** Runs on tag push matching `v*.*.*`. Restores, publishes Release to `dist/`, optionally signs (only if `SIGN_CERT_PFX_BASE64` repo secret is set — else skipped silently), zips the artifact set, then uses `softprops/action-gh-release@v2` to create the GitHub Release with auto-generated notes from commit messages and uploads the zip as an asset.
+- **Effect:** Future releases are `git tag -a vX.Y.Z && git push --tags` — that's it. No manual zip, no curl, no PAT pasting.
+
+### [FEAT-SIGN] Code-signing infrastructure
+- **Modified:** `LogAnzlyzer.csproj` (added `SignOutput` MSBuild target), `README.md` (docs)
+- **What:** Conditional `Target Name="SignOutput" AfterTargets="Build"` runs `signtool sign` only when `SIGN_CERT_PATH` and `SIGN_CERT_PASSWORD` env vars are set AND `Configuration == Release`. Uses DigiCert timestamp authority. No-op (no error) when env vars absent — keeps casual / CI builds running without cert config.
+- **CI counterpart:** `release.yml` decodes the `SIGN_CERT_PFX_BASE64` secret to a temp .pfx, runs signtool, then deletes the temp file.
+- **No actual cert acquired** — SmartScreen warning still appears for users until you get one. Setup is fully wired so when you obtain a cert (Sectigo / DigiCert / Azure Trusted Signing) you only need to set 2 env vars (local) or 2 GitHub secrets (CI).
+- **README docs:** added `Code-Signing` section with both local and CI setup steps.
+
+## Verification
+- `dotnet build`: 0 warnings, 0 errors
+- App launches; update check fires on `Shown` (background thread, silent on no-update)
+- Live `UpdateChecker.CheckAsync()` against GitHub API: parsed v0.3.0 correctly, returned null because current 0.4.0.0 is newer (correct behaviour)
+- CI workflows YAML validated by visual inspection; first real run will be when v0.4.0 tag is pushed
+
+## Files modified / added
+- `src/LogAnzlyzer/Updates/UpdateChecker.cs` (new)
+- `src/LogAnzlyzer/Forms/UpdateAvailableDialog.cs` (new)
+- `src/LogAnzlyzer/Forms/MainForm.cs` (TryCheckForUpdate hook)
+- `src/LogAnzlyzer/LogAnzlyzer.csproj` (SignOutput target + version 0.4.0)
+- `.github/workflows/build.yml` (new)
+- `.github/workflows/release.yml` (new)
+- `README.md` (auto-update + code-signing sections, CI badge, roadmap)
+
+## Processes touched
+main (startup hook), updater (HTTP call + dialog), build (MSBuild target + CI workflows)

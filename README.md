@@ -6,7 +6,7 @@ by computing per-event delays from timestamped log files and highlighting the **
 
 Built with **C# · WinForms · .NET Framework 4.8**.
 
-![Status](https://img.shields.io/badge/status-v0.1%20alpha-blue) ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey) ![License](https://img.shields.io/badge/license-MIT-green)
+![Build](https://github.com/eugine8248/log-analyzer/actions/workflows/build.yml/badge.svg) ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## What it does
 
@@ -89,7 +89,43 @@ The `tokens.css` in there is the canonical color/typography source.
 - [x] v0.1.1 — UI fixes (hero baseline, span format, settings layout)
 - [x] v0.2 — drag-select timestamp bounds, custom titlebar, recent files, export PNG/CSV
 - [x] v0.3 — large-file streaming with cancellable progress + multi-file comparison view
-- [ ] v0.4 — auto-update from GitHub Releases, code-signing
+- [x] v0.4 — auto-update notifier + GitHub Actions CI/CD + code-signing infrastructure
+- [ ] v0.5 — in-app diff between two logs, regex pattern library, FAQ docs
+
+## Auto-Update
+
+On launch the app silently queries `https://api.github.com/repos/eugine8248/log-analyzer/releases/latest`.
+If a newer tag is found, a non-blocking dialog offers to open the download page.
+Skipping a version is remembered so it doesn't re-prompt.
+Toggle off via Settings (planned) or directly:
+```sql
+sqlite3 %APPDATA%/log-analyzer/cache.db "UPDATE app_settings SET value='false' WHERE key='update.check_on_startup';"
+```
+
+## Code-Signing (optional — for releases you distribute)
+
+Releases ship unsigned by default — users see SmartScreen "unrecognized publisher" once and
+can click through. To sign your own builds:
+
+### Local builds
+```powershell
+$env:SIGN_CERT_PATH     = "C:\path\to\your.pfx"
+$env:SIGN_CERT_PASSWORD = "your-pfx-password"
+dotnet build src/LogAnzlyzer/LogAnzlyzer.csproj -c Release
+# signtool runs automatically as a post-build step (csproj target SignOutput)
+```
+
+### CI builds (GitHub Actions)
+Add two repository secrets:
+- `SIGN_CERT_PFX_BASE64` — your `.pfx` file, base64-encoded
+- `SIGN_CERT_PASSWORD`   — its password
+
+Generate base64 from PowerShell:
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("your.pfx")) | clip
+```
+
+The `release.yml` workflow detects the secret and signs `LogAnzlyzer.exe` automatically.
 
 ## Licence
 

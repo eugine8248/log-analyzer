@@ -1,0 +1,44 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore src/LogAnzlyzer/LogAnzlyzer.csproj
+
+      - name: Build (Debug)
+        run: dotnet build src/LogAnzlyzer/LogAnzlyzer.csproj -c Debug --no-restore -warnaserror
+
+      - name: Build (Release)
+        run: dotnet build src/LogAnzlyzer/LogAnzlyzer.csproj -c Release --no-restore -warnaserror
+
+      - name: Smoke test (assembly loads, parser API present)
+        shell: pwsh
+        run: |
+          $bin = "src/LogAnzlyzer/bin/Release/net48"
+          $asm = [Reflection.Assembly]::LoadFile((Resolve-Path "$bin/LogAnzlyzer.exe").Path)
+          $required = @(
+            'LogAnzlyzer.Forms.MainForm',
+            'LogAnzlyzer.Parsing.LogParser',
+            'LogAnzlyzer.Stats.StatsCalculator',
+            'LogAnzlyzer.Storage.CacheDatabase',
+            'LogAnzlyzer.Updates.UpdateChecker'
+          )
+          foreach ($t in $required) {
+            if ($null -eq $asm.GetType($t)) { throw "Missing required type: $t" }
+          }
+          Write-Host "OK — all required types present"
