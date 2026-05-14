@@ -3,8 +3,8 @@ approval_mode: true
 framework: winforms-dotnet-framework-4.8
 target_platforms:
   - windows
-current_phase: QA
-current_specialist: qa
+current_phase: COMPLETE
+current_specialist: pm
 phases:
   - Discovery
   - Design
@@ -25,6 +25,11 @@ tech_stack:
   backend: C# in-process (.NET Framework 4.8)
   database: SQLite (System.Data.SQLite) at %APPDATA%/log-analyzer/cache.db
 dist_path: C:/Users/eugin/projects/log-analyzer/dist/
-github_repo: ""
-last_handoff_summary: "QA COMPLETE. Run #1: 22 automated checks pass, 14 deferred to human visual verification, 0 failures, 2 LOW warnings (deferred features scoped to v0.2). Build clean. App launches. Parser + stats math verified against sample log with planted spikes. Awaiting user approval to proceed to Package phase + GitHub push."
-last_updated: "2026-05-14T04:35:00Z"
+git_initialized: true
+git_initial_commit: "59e1727"
+git_tag: v0.1.0
+github_repo: "https://github.com/eugine8248/log-analyzer"
+github_release: "https://github.com/eugine8248/log-analyzer/releases/tag/v0.1.0"
+release_asset: "https://github.com/eugine8248/log-analyzer/releases/download/v0.1.0/LogAnzlyzer-v0.1.0-win-x64.zip"
+last_handoff_summary: "PROJECT COMPLETE. All 5 phases finished. Source pushed to GitHub. v0.1.0 tagged and released with zipped binaries (518 KB) attached. PAT used for push has been recommended for revocation."
+last_updated: "2026-05-14T06:53:00Z"

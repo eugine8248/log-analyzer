@@ -13,8 +13,7 @@ namespace LogAnzlyzer.Forms
             Text = "Settings";
             FormBorderStyle = FormBorderStyle.FixedDialog;
             StartPosition = FormStartPosition.CenterParent;
-            Width = 660;
-            Height = 460;
+            ClientSize = new Size(720, 460);
             MinimizeBox = false;
             MaximizeBox = false;
             ApplyTheme();
@@ -26,71 +25,99 @@ namespace LogAnzlyzer.Forms
         {
             var t = ThemeManager.Current;
 
-            // Tab rail (left, 140px)
-            var rail = new Panel { Dock = DockStyle.Left, Width = 140, BackColor = t.Panel };
+            // Footer first (Dock=Bottom must be added BEFORE Fill children to claim space)
+            var footer = new Panel { Dock = DockStyle.Bottom, Height = 56, BackColor = t.Bg };
+            var btnApply = new Button
+            {
+                Text = "Close",
+                Width = 88, Height = 30,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = t.Accent, ForeColor = t.AccentFg,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+            };
+            btnApply.FlatAppearance.BorderSize = 0;
+            btnApply.Click += (s, e) => Close();
+            btnApply.Top = 14;
+            btnApply.Left = footer.Width - btnApply.Width - 18;
+            footer.Resize += (s, e) => btnApply.Left = footer.Width - btnApply.Width - 18;
+            footer.Controls.Add(btnApply);
+            Controls.Add(footer);
+            AcceptButton = btnApply;
+
+            // Tab rail (Dock=Left)
+            var rail = new Panel { Dock = DockStyle.Left, Width = 150, BackColor = t.Panel };
             string[] tabs = { "General", "Appearance", "Cache" };
-            int activeTab = 1; // open on Appearance per design
+            int activeTab = 1;
             for (int i = 0; i < tabs.Length; i++)
             {
-                int ii = i;
                 var item = new Label
                 {
                     Text = tabs[i],
                     Font = Fonts.Body,
                     ForeColor = i == activeTab ? t.TextStrong : t.Text,
                     BackColor = i == activeTab ? t.RowSelected : Color.Transparent,
-                    Padding = new Padding(13, 8, 0, 8),
-                    Top = 10 + i * 36,
+                    Padding = new Padding(16, 8, 0, 8),
+                    Top = 12 + i * 36,
                     Left = 0,
-                    Width = 140,
+                    Width = 150,
                     Height = 32,
                     TextAlign = ContentAlignment.MiddleLeft,
-                    BorderStyle = BorderStyle.None,
                 };
                 rail.Controls.Add(item);
                 if (i == activeTab)
                 {
                     var leftBar = new Panel { Top = item.Top, Left = 0, Width = 3, Height = item.Height, BackColor = t.Accent };
                     rail.Controls.Add(leftBar);
+                    leftBar.BringToFront();
                 }
             }
             Controls.Add(rail);
 
-            // Body (Appearance tab content)
-            var body = new Panel { Dock = DockStyle.Fill, BackColor = t.Bg, Padding = new Padding(22, 18, 22, 18) };
+            // Body (Dock=Fill — must be added LAST so it picks up remaining space cleanly)
+            var body = new Panel { Dock = DockStyle.Fill, BackColor = t.Bg, Padding = new Padding(24, 20, 24, 20) };
             Controls.Add(body);
 
             int y = 0;
 
-            // Theme section
-            var themeLabel = new Label { Text = "THEME", Font = Fonts.Tiny, ForeColor = t.TextMuted, Top = y, Left = 0, AutoSize = true };
-            body.Controls.Add(themeLabel);
-            y += 22;
+            // ---- THEME section
+            body.Controls.Add(MakeSectionLabel("THEME", y));
+            y += 24;
 
-            // 3 theme cards
-            var cardDark = MakeThemeCard("Dark", isDark: true, isActive: ThemeManager.Current.Mode == ThemeMode.Dark, x: 0, y: y);
-            var cardLight = MakeThemeCard("Light", isDark: false, isActive: ThemeManager.Current.Mode == ThemeMode.Light, x: 140, y: y);
-            cardDark.Click += (s, e) => { ThemeManager.Set(ThemeMode.Dark); Close(); };
+            var cardDark  = MakeThemeCard("Dark",  isDark: true,  isActive: ThemeManager.Current.Mode == ThemeMode.Dark,  x: 0,   y: y);
+            var cardLight = MakeThemeCard("Light", isDark: false, isActive: ThemeManager.Current.Mode == ThemeMode.Light, x: 152, y: y);
+            cardDark.Click  += (s, e) => { ThemeManager.Set(ThemeMode.Dark);  Close(); };
             cardLight.Click += (s, e) => { ThemeManager.Set(ThemeMode.Light); Close(); };
             body.Controls.Add(cardDark);
             body.Controls.Add(cardLight);
-            y += cardDark.Height + 20;
+            y += 110;
 
-            // Divider
-            body.Controls.Add(new Panel { Top = y, Left = 0, Width = body.Width - 40, Height = 1, BackColor = t.BorderSoft });
-            y += 14;
+            // Divider — anchored to fill width
+            var div = new Panel { Top = y, Left = 0, Height = 1, BackColor = t.BorderSoft, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
+            div.Width = body.ClientSize.Width - body.Padding.Horizontal;
+            body.Controls.Add(div);
+            body.Resize += (s, e) => div.Width = body.ClientSize.Width - body.Padding.Horizontal;
+            y += 16;
 
-            // Settings rows
-            AddRow(body, "Show stats sidebar", "Right panel with P1, median, P95/P99 values", true, ref y);
-            AddRow(body, "Highlight P1 events in table", "Tail-latency rows get coral marker + bold delay", true, ref y);
+            // ---- BEHAVIOR section
+            body.Controls.Add(MakeSectionLabel("BEHAVIOR", y));
+            y += 24;
 
-            // Footer buttons
-            var btnApply = new Button { Text = "Close", Top = Height - 70, Left = Width - 100, Width = 80, Height = 28, FlatStyle = FlatStyle.Flat };
-            btnApply.BackColor = t.Accent; btnApply.ForeColor = t.AccentFg;
-            btnApply.FlatAppearance.BorderSize = 0;
-            btnApply.Click += (s, e) => Close();
-            Controls.Add(btnApply);
-            AcceptButton = btnApply;
+            AddRow(body, ref y, "Show stats sidebar",         "Right panel with P1, median, P95/P99 values", on: true);
+            AddRow(body, ref y, "Highlight P1 events in table","Tail-latency rows get coral marker + bold delay", on: true);
+            AddRow(body, ref y, "Datetime format",              "Displayed in tooltips and the status bar",        on: false, asInfo: "yyyy-MM-dd HH:mm:ss.fff");
+        }
+
+        // -------- helpers --------
+
+        private Label MakeSectionLabel(string text, int y)
+        {
+            return new Label
+            {
+                Text = text,
+                Font = Fonts.Tiny,
+                ForeColor = ThemeManager.Current.TextMuted,
+                Top = y, Left = 0, AutoSize = true,
+            };
         }
 
         private Panel MakeThemeCard(string label, bool isDark, bool isActive, int x, int y)
@@ -98,7 +125,7 @@ namespace LogAnzlyzer.Forms
             var t = ThemeManager.Current;
             var card = new Panel
             {
-                Top = y, Left = x, Width = 130, Height = 96,
+                Top = y, Left = x, Width = 140, Height = 96,
                 BackColor = t.PanelElev,
                 Cursor = Cursors.Hand,
             };
@@ -107,42 +134,99 @@ namespace LogAnzlyzer.Forms
                 var g = e.Graphics;
                 using (var pen = new Pen(isActive ? t.Accent : t.Border, 1.5f))
                     g.DrawRectangle(pen, 0, 0, card.Width - 1, card.Height - 1);
-                // mini preview panel
                 var prev = isDark ? Color.FromArgb(0x11, 0x14, 0x1a) : Color.FromArgb(0xfb, 0xfb, 0xfd);
                 var prevText = isDark ? Color.FromArgb(0xd6, 0xda, 0xe3) : Color.FromArgb(0x20, 0x24, 0x2b);
                 using (var b = new SolidBrush(prev)) g.FillRectangle(b, 8, 8, card.Width - 16, 56);
                 using (var pen = new Pen(t.BorderSoft)) g.DrawRectangle(pen, 8, 8, card.Width - 16, 56);
-                using (var b = new SolidBrush(t.Accent)) g.FillRectangle(b, 14, 18, 12, 4);
-                using (var b = new SolidBrush(prevText)) { g.FillRectangle(b, 14, 26, 30, 2); g.FillRectangle(b, 14, 32, 22, 2); }
+                using (var b = new SolidBrush(t.Accent)) g.FillRectangle(b, 14, 18, 14, 4);
+                using (var b = new SolidBrush(prevText)) { g.FillRectangle(b, 14, 26, 36, 2); g.FillRectangle(b, 14, 32, 24, 2); }
                 using (var f = Fonts.Small)
                     TextRenderer.DrawText(g, label, f, new Point(10, 70), t.Text);
                 if (isActive)
                 {
                     using (var f = Fonts.Small)
-                        TextRenderer.DrawText(g, "✓", f, new Point(card.Width - 24, 70), t.Accent);
+                    {
+                        var sz = TextRenderer.MeasureText("✓", f);
+                        TextRenderer.DrawText(g, "✓", f, new Point(card.Width - sz.Width - 10, 70), t.Accent);
+                    }
                 }
             };
             return card;
         }
 
-        private void AddRow(Panel body, string label, string hint, bool on, ref int y)
+        // Settings row — proper anchoring so labels never clip and toggles stay glued to the right.
+        private void AddRow(Panel host, ref int y, string label, string hint, bool on, string asInfo = null)
         {
             var t = ThemeManager.Current;
-            var lbl = new Label { Text = label, Font = Fonts.Body, ForeColor = t.Text, Top = y, Left = 0, AutoSize = true };
-            body.Controls.Add(lbl);
-            var sub = new Label { Text = hint, Font = Fonts.Tiny, ForeColor = t.TextMuted, Top = y + 18, Left = 0, AutoSize = true };
-            body.Controls.Add(sub);
-            var toggle = new CheckBox { Checked = on, Top = y, Left = body.Width - 80, Appearance = Appearance.Button, Width = 50, Height = 24, FlatStyle = FlatStyle.Flat };
-            toggle.Text = on ? "ON" : "OFF";
-            toggle.BackColor = on ? t.Accent : t.InputBorder;
-            toggle.ForeColor = t.AccentFg;
-            toggle.CheckedChanged += (s, e) =>
+
+            var row = new Panel
             {
-                toggle.Text = toggle.Checked ? "ON" : "OFF";
-                toggle.BackColor = toggle.Checked ? ThemeManager.Current.Accent : ThemeManager.Current.InputBorder;
+                Top = y, Left = 0, Height = 48, BackColor = Color.Transparent,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
             };
-            body.Controls.Add(toggle);
-            y += 50;
+            row.Width = host.ClientSize.Width - host.Padding.Horizontal;
+            host.Resize += (s, e) => row.Width = host.ClientSize.Width - host.Padding.Horizontal;
+
+            var lbl = new Label
+            {
+                Text = label, Font = Fonts.Body, ForeColor = t.Text,
+                Top = 0, Left = 0, AutoSize = false, Height = 20,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+            };
+            lbl.Width = row.Width - 110; // reserve space for toggle/info on the right
+            row.Resize += (s, e) => lbl.Width = row.Width - 110;
+            row.Controls.Add(lbl);
+
+            var sub = new Label
+            {
+                Text = hint, Font = Fonts.Tiny, ForeColor = t.TextMuted,
+                Top = 22, Left = 0, AutoSize = false, Height = 18,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+            };
+            sub.Width = row.Width - 110;
+            row.Resize += (s, e) => sub.Width = row.Width - 110;
+            row.Controls.Add(sub);
+
+            if (asInfo != null)
+            {
+                var info = new Label
+                {
+                    Text = asInfo, Font = Fonts.Mono, ForeColor = t.Text,
+                    Top = 12, Width = 100, Height = 22,
+                    TextAlign = ContentAlignment.MiddleRight,
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                };
+                info.Left = row.Width - info.Width;
+                row.Resize += (s, e) => info.Left = row.Width - info.Width;
+                row.Controls.Add(info);
+            }
+            else
+            {
+                var toggle = new CheckBox
+                {
+                    Checked = on, Top = 12, Width = 50, Height = 24,
+                    Appearance = Appearance.Button, FlatStyle = FlatStyle.Flat,
+                    Text = on ? "ON" : "OFF",
+                    BackColor = on ? t.Accent : t.InputBorder,
+                    ForeColor = t.AccentFg,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                };
+                toggle.FlatAppearance.BorderSize = 0;
+                toggle.Left = row.Width - toggle.Width;
+                row.Resize += (s, e) => toggle.Left = row.Width - toggle.Width;
+                toggle.CheckedChanged += (s, e) =>
+                {
+                    toggle.Text = toggle.Checked ? "ON" : "OFF";
+                    toggle.BackColor = toggle.Checked ? ThemeManager.Current.Accent : ThemeManager.Current.InputBorder;
+                };
+                row.Controls.Add(toggle);
+            }
+
+            host.Controls.Add(row);
+            y += row.Height + 8;
         }
 
         private void ApplyTheme()

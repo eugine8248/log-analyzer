@@ -119,5 +119,25 @@ log-analyzer/
 - Status: **CLEAN — ready for Package phase**
 - Full report: `qa-report.md`
 
+## Packaging Config
+- Build: `dotnet publish -c Release -o dist/` against .NET SDK 9.0.102, target net48
+- Output: `dist/` contains `LogAnzlyzer.exe` (55 KB) + 6 dependency DLLs
+- Distribution zip: `dist/LogAnzlyzer-v0.1.0-win-x64.zip` (518 KB)
+
+## GitHub Release
+- Repo: https://github.com/eugine8248/log-analyzer
+- Tag: `v0.1.0` (commit `59e1727`)
+- Release: https://github.com/eugine8248/log-analyzer/releases/tag/v0.1.0
+- Binary asset: LogAnzlyzer-v0.1.0-win-x64.zip
+- Push performed remotely via PAT (token sanitized from local .git/config; reminded user to revoke)
+
+## Phase Log
+- 2026-05-14 03:00 — Project initiated, routed to Desktop App Builder PM, approval mode set
+- 2026-05-14 03:25 — Discovery COMPLETE (16-section interview)
+- 2026-05-14 03:50 — Design COMPLETE (Claude Design pack processed, 12 artboards extracted)
+- 2026-05-14 04:15 — Build COMPLETE (WinForms scaffold compiled clean)
+- 2026-05-14 04:35 — QA COMPLETE (Run #1: 22 pass, 0 fail, 2 LOW warnings deferred to v0.2)
+- 2026-05-14 04:55 — Package COMPLETE (Release built, git committed, GitHub repo created and pushed, v0.1.0 tagged and released)
+
 
 

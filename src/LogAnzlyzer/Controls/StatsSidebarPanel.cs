@@ -29,9 +29,16 @@ namespace LogAnzlyzer.Controls
             _histogram = histogram ?? new int[28];
             _spanStart = start;
             _spanEnd = end;
-            var d = end - start;
-            _spanText = $"{(int)d.TotalMinutes} min {d.Seconds} sec";
+            _spanText = FormatSpan(end - start);
             Invalidate();
+        }
+
+        private static string FormatSpan(TimeSpan d)
+        {
+            if (d.TotalDays >= 1) return $"{(int)d.TotalDays}d {d.Hours}h {d.Minutes}m";
+            if (d.TotalHours >= 1) return $"{(int)d.TotalHours}h {d.Minutes}m {d.Seconds}s";
+            if (d.TotalMinutes >= 1) return $"{(int)d.TotalMinutes}m {d.Seconds}s";
+            return $"{d.Seconds}.{d.Milliseconds:D3}s";
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -60,14 +67,17 @@ namespace LogAnzlyzer.Controls
             DrawSmallCard(g, t, new Rectangle(14 + colW + 6, y, colW, rowH), "Events", _stats.Count, t.Text, true);
             y += rowH + 12;
 
-            // Span
+            // Span — show date when multi-day, else just time
             DrawDivider(g, t, ref y);
             DrawSectionLabel(g, t, "Span", 14, ref y);
             using (var f = Fonts.Mono)
             {
-                TextRenderer.DrawText(g, $"start  {_spanStart:HH:mm:ss.fff}", f, new Point(14, y), t.Text);
+                bool multiDay = _spanStart.Date != _spanEnd.Date;
+                string startFmt = multiDay ? _spanStart.ToString("MM-dd HH:mm:ss.fff") : _spanStart.ToString("HH:mm:ss.fff");
+                string endFmt   = multiDay ? _spanEnd.ToString("MM-dd HH:mm:ss.fff")   : _spanEnd.ToString("HH:mm:ss.fff");
+                TextRenderer.DrawText(g, "start  " + startFmt, f, new Point(14, y), t.Text);
                 y += 18;
-                TextRenderer.DrawText(g, $"end    {_spanEnd:HH:mm:ss.fff}", f, new Point(14, y), t.Text);
+                TextRenderer.DrawText(g, "end    " + endFmt, f, new Point(14, y), t.Text);
                 y += 18;
                 TextRenderer.DrawText(g, _spanText, f, new Point(14, y), t.TextMuted);
                 y += 22;
@@ -111,19 +121,25 @@ namespace LogAnzlyzer.Controls
             using (var f = Fonts.Tiny)
                 TextRenderer.DrawText(g, "P1 — LOW 1% TAIL", f, new Point(r.Left + 12, r.Top + 12), t.TextMuted);
 
-            using (var f = Fonts.StatHero)
+            // Value + unit on same baseline. We measure both fonts to compute baselines.
+            string val = p1 > 0 ? p1.ToString("N0") : "—";
+            int valueY = r.Top + 30;
+            using (var fVal = Fonts.StatHero)
+            using (var fUnit = Fonts.Body)
             {
-                string val = p1 > 0 ? p1.ToString("0") : "—";
-                TextRenderer.DrawText(g, val, f, new Point(r.Left + 12, r.Top + 30), t.P1);
-                var sz = TextRenderer.MeasureText(val, f);
-                using (var fu = Fonts.Body)
-                    TextRenderer.DrawText(g, " ms", fu, new Point(r.Left + 12 + sz.Width, r.Top + 60), t.TextMuted);
+                Size valSz = TextRenderer.MeasureText(g, val, fVal, new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding);
+                Size unitSz = TextRenderer.MeasureText(g, "ms", fUnit, new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding);
+
+                TextRenderer.DrawText(g, val, fVal, new Point(r.Left + 12, valueY), t.P1, TextFormatFlags.NoPadding);
+                int unitY = valueY + valSz.Height - unitSz.Height - 6; // align baselines
+                TextRenderer.DrawText(g, "ms", fUnit, new Point(r.Left + 12 + valSz.Width + 6, unitY), t.TextMuted, TextFormatFlags.NoPadding);
             }
 
+            // Description — wraps to 2 lines if needed, full available width
             using (var f = Fonts.Tiny)
-                TextRenderer.DrawText(g, "worst 1% of delays — performance drops here", f,
-                    new Rectangle(r.Left + 12, r.Bottom - 24, r.Width - 24, 18), t.TextMuted,
-                    TextFormatFlags.WordEllipsis);
+                TextRenderer.DrawText(g, "worst 1% of delays — where stability slips", f,
+                    new Rectangle(r.Left + 12, r.Bottom - 36, r.Width - 24, 32), t.TextMuted,
+                    TextFormatFlags.WordBreak | TextFormatFlags.Top);
         }
 
         private void DrawSmallCard(Graphics g, ThemeColors t, Rectangle r, string label, double value, Color valueColor, bool integerOnly = false)
