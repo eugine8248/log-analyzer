@@ -195,3 +195,44 @@ parser (streaming + offset tracking), renderer (compare view), main (progress or
 
 ## Processes touched
 main (startup hook), updater (HTTP call + dialog), build (MSBuild target + CI workflows)
+
+---
+
+## Session #5 — 2026-05-14 (v0.5 feature work)
+**Trigger:** PM — v0.5 cycle approved with all three roadmap items
+**Framework:** WinForms / .NET Framework 4.8
+**Features added:** 3
+
+### [FEAT-REGEX-LIB] Curated timestamp regex library
+- **New file:** `Parsing/RegexLibrary.cs`
+- **Modified:** `Forms/TimestampDialog.cs` (added `Pattern library` ComboBox)
+- **What:** 8 named presets shipped: ISO 8601 (default), ISO 8601 with T, ISO 8601 no millis, Java/Log4j (comma millis), Python logging (same shape), Syslog RFC 3164, Apache Common Log Format, IIS W3C. Each preset has Name, Description, Pattern (capture group 1 = timestamp), DateTimeFormat, and an Example line.
+- **UX:** ComboBox above the regex textbox. Selecting a preset updates the regex live. "(custom — use the regex below)" entry preserves the existing manual flow.
+
+### [FEAT-DIFF] In-app diff between two logs (baseline vs current)
+- **New file:** `Controls/DiffStatsPanel.cs`
+- **Modified:** `Forms/MainForm.cs` (new menu item + OpenDiffDialog + BuildDiffTabPage)
+- **What:** `File → Diff two logs...` (Ctrl+Shift+D). Reuses CompareDialog but enforces exactly-2 selection. Builds a tab with the same overlaid chart as Compare (color: Accent for baseline, P1 for current) PLUS a sidebar showing baseline / current / delta-with-percent for P1, P99, P95, Median, Mean, Max, Events. Improvements (lower delay) render teal; regressions render coral. Lower-is-better is configurable per metric (Events is integer count, not lower-is-better).
+- **Reuses:** ParseWithProgress (so streaming + cancel apply to diff batches), DelayChartPanel.RenderMulti, CompareDialog.
+
+### [FEAT-FAQ] FAQ documentation
+- **New file:** `docs/FAQ.md`
+- **Modified:** `README.md` (Documentation section linking to FAQ; roadmap updated for v0.5 done + v0.6 proposed)
+- **Sections:** What is this for / What does P1 mean / How to open a log / Custom timestamp formats / File size limits / Chart downsampling / SQLite cache / Compare vs Diff / Auto-update privacy / Build from source / SmartScreen / Exports / Keyboard shortcuts / Where to file bugs.
+
+## Verification
+- `dotnet build`: 0 warnings, 0 errors
+- App launches (smoke test)
+- Diff sidebar layout + delta math verified by code review (sign convention: delta = current - baseline; lower-is-better metric improves when delta < 0 → teal)
+
+## Files modified / added
+- `src/LogAnzlyzer/Parsing/RegexLibrary.cs` (new)
+- `src/LogAnzlyzer/Controls/DiffStatsPanel.cs` (new)
+- `src/LogAnzlyzer/Forms/TimestampDialog.cs` (Pattern library combo)
+- `src/LogAnzlyzer/Forms/MainForm.cs` (Diff menu + handlers)
+- `docs/FAQ.md` (new)
+- `README.md` (Documentation section + roadmap)
+- `src/LogAnzlyzer/LogAnzlyzer.csproj` (version 0.4.0 → 0.5.0)
+
+## Processes touched
+renderer (dialogs, sidebar), main (new menu)

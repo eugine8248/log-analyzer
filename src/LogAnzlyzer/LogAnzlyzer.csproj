@@ -6,7 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>LogAnzlyzer</RootNamespace>
     <AssemblyName>LogAnzlyzer</AssemblyName>
-    <Version>0.4.0</Version>
+    <Version>0.5.0</Version>
     <Authors>eugine8248</Authors>
     <Product>LogAnzlyzer</Product>
     <Description>Desktop log analyzer for performance and stability monitoring</Description>

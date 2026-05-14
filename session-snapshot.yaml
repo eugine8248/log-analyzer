@@ -25,22 +25,30 @@ tech_stack:
   frontend: WinForms + ScottPlot + custom theming + custom titlebar
   backend: C# in-process (.NET Framework 4.8)
   database: SQLite (System.Data.SQLite) at %APPDATA%/log-analyzer/cache.db
+  ci_cd: GitHub Actions (build on push, release on tag v*.*.*)
 dist_path: C:/Users/eugin/projects/log-analyzer/dist/
 git_initialized: true
 git_initial_commit: "59e1727"
-git_latest_commit: "c864b45"
+git_latest_commit: "e119896"
 git_tags:
   - v0.1.0
   - v0.1.1
   - v0.2.0
   - v0.3.0
+  - v0.4.0
 github_repo: "https://github.com/eugine8248/log-analyzer"
 github_releases:
-  - "https://github.com/eugine8248/log-analyzer/releases/tag/v0.1.0"
-  - "https://github.com/eugine8248/log-analyzer/releases/tag/v0.1.1"
-  - "https://github.com/eugine8248/log-analyzer/releases/tag/v0.2.0"
-  - "https://github.com/eugine8248/log-analyzer/releases/tag/v0.3.0"
-debug_sessions: 3
-last_debug_summary: "Session #3 — v0.3 features: large-file streaming (verified at 218MB / 2.5M entries / 4.5s) and multi-file comparison view."
-last_handoff_summary: "v0.3.0 released. Note: had to soft-reset and re-commit after accidentally staging a 218MB test sample log (now in .gitignore). Push completed cleanly with the user's new PAT."
-last_updated: "2026-05-14T08:19:00Z"
+  - "https://github.com/eugine8248/log-analyzer/releases/tag/v0.1.0 (manual upload)"
+  - "https://github.com/eugine8248/log-analyzer/releases/tag/v0.1.1 (manual upload)"
+  - "https://github.com/eugine8248/log-analyzer/releases/tag/v0.2.0 (manual upload)"
+  - "https://github.com/eugine8248/log-analyzer/releases/tag/v0.3.0 (manual upload)"
+  - "https://github.com/eugine8248/log-analyzer/releases/tag/v0.4.0 (CI/CD: GitHub Actions release.yml)"
+ci_status:
+  build_workflow: "https://github.com/eugine8248/log-analyzer/actions/workflows/build.yml"
+  release_workflow: "https://github.com/eugine8248/log-analyzer/actions/workflows/release.yml"
+  last_build_run: "success — 2026-05-14"
+  last_release_run: "success — 2026-05-14 (v0.4.0 published with asset)"
+debug_sessions: 4
+last_debug_summary: "Session #4 — v0.4 features: auto-update notifier, GitHub Actions CI/CD (both workflows verified green), code-signing infrastructure (no cert acquired)."
+last_handoff_summary: "v0.4.0 released by GitHub Actions automatically. Future releases = `git tag -a vX.Y.Z && git push --tags`."
+last_updated: "2026-05-14T08:35:00Z"

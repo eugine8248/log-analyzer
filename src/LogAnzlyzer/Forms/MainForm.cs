@@ -95,6 +95,7 @@ namespace LogAnzlyzer.Forms
             fileMenu.DropDownOpening += (s, e) => RebuildRecentMenu();
             fileMenu.DropDownItems.Add(new ToolStripSeparator());
             fileMenu.DropDownItems.Add(MakeMenu("&Compare logs...", Keys.Control | Keys.Shift | Keys.C, (s, e) => OpenCompareDialog()));
+            fileMenu.DropDownItems.Add(MakeMenu("&Diff two logs...", Keys.Control | Keys.Shift | Keys.D, (s, e) => OpenDiffDialog()));
             fileMenu.DropDownItems.Add(new ToolStripSeparator());
             fileMenu.DropDownItems.Add(MakeMenu("E&xit", Keys.None, (s, e) => Close()));
 
@@ -276,6 +277,63 @@ namespace LogAnzlyzer.Forms
                 ShowEmptyState(false);
                 UpdateStatus($"Comparing {series.Count} logs", null, null);
             }
+        }
+
+        // Diff = compare exactly 2 logs (baseline vs current) with delta stats panel.
+        private void OpenDiffDialog()
+        {
+            using (var dlg = new CompareDialog())
+            {
+                dlg.Text = "Diff two logs (baseline vs current)";
+                if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                var paths = dlg.SelectedPaths;
+                if (paths.Count != 2)
+                {
+                    MessageBox.Show(this, "Diff requires exactly 2 logs (baseline + current). Pick 2 and try again.",
+                        "Diff", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                var regex = TimestampDetector.DefaultRegex;
+
+                var t = ThemeManager.Current;
+                ParsedLog logA = ParseWithProgress(paths[0], regex);
+                ParsedLog logB = ParseWithProgress(paths[1], regex);
+                if (logA == null || logB == null) return;
+                var statsA = StatsCalculator.Compute(logA.Entries);
+                var statsB = StatsCalculator.Compute(logB.Entries);
+                var series = new[]
+                {
+                    new ChartSeries { Label = "Baseline: " + Path.GetFileName(paths[0]), Entries = logA.Entries, Stats = statsA, Color = t.Accent },
+                    new ChartSeries { Label = "Current: "  + Path.GetFileName(paths[1]), Entries = logB.Entries, Stats = statsB, Color = t.P1 },
+                };
+
+                var page = BuildDiffTabPage(paths[0], statsA, paths[1], statsB, series);
+                _tabs.TabPages.Add(page);
+                _tabs.SelectedTab = page;
+                ShowEmptyState(false);
+                UpdateStatus("Diff: 2 logs", null, null);
+                Storage.CacheDatabase.AddRecentFile(paths[0]);
+                Storage.CacheDatabase.AddRecentFile(paths[1]);
+            }
+        }
+
+        private TabPage BuildDiffTabPage(string pathA, DelayStats a, string pathB, DelayStats b, IList<ChartSeries> series)
+        {
+            var page = new TabPage("Diff (" + Path.GetFileNameWithoutExtension(pathA) + " vs " + Path.GetFileNameWithoutExtension(pathB) + ")");
+            page.BackColor = ThemeManager.Current.Bg;
+
+            var sidebar = new DiffStatsPanel
+            {
+                FileA = pathA, FileB = pathB,
+                ColorA = ThemeManager.Current.Accent, ColorB = ThemeManager.Current.P1,
+            };
+            sidebar.Set(a, b);
+            page.Controls.Add(sidebar);
+
+            var chart = new DelayChartPanel();
+            chart.RenderMulti(series, showReferenceLines: false);
+            page.Controls.Add(chart);
+            return page;
         }
 
         private TabPage BuildComparisonTabPage(IList<ChartSeries> series, IList<ComparisonStatsPanel.Row> rows)

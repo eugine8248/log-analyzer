@@ -30,7 +30,7 @@ namespace LogAnzlyzer.Forms
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = false;
             MaximizeBox = false;
-            ClientSize = new Size(640, 460);
+            ClientSize = new Size(640, 510);
             ApplyTheme();
             ThemeManager.ThemeChanged += (s, e) => { ApplyTheme(); Invalidate(true); };
 
@@ -71,11 +71,41 @@ namespace LogAnzlyzer.Forms
             _legend.AutoSize = false;
             Controls.Add(_legend);
 
+            // Regex library picker — fills the regex box from a known preset.
+            var libLabel = new Label
+            {
+                Text = "Pattern library",
+                Font = Fonts.Tiny, ForeColor = t.TextMuted,
+                Top = 240, Left = 18, AutoSize = true,
+            };
+            Controls.Add(libLabel);
+
+            var libCombo = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Top = 258, Left = 18, Width = 280,
+                Font = Fonts.Body,
+                BackColor = t.InputBg, ForeColor = t.Text, FlatStyle = FlatStyle.Flat,
+            };
+            libCombo.Items.Add("(custom — use the regex below)");
+            foreach (var p in Parsing.RegexLibrary.Presets)
+                libCombo.Items.Add(p.Name);
+            libCombo.SelectedIndex = 0;
+            libCombo.SelectedIndexChanged += (s, e) =>
+            {
+                int idx = libCombo.SelectedIndex - 1;
+                if (idx < 0) return;
+                var preset = Parsing.RegexLibrary.Presets[idx];
+                _regexBox.Text = preset.Pattern;
+                SelectedRegex = preset.Pattern;
+            };
+            Controls.Add(libCombo);
+
             var regexLabel = new Label
             {
                 Text = "Regex (power-user override)",
                 Font = Fonts.Tiny, ForeColor = t.TextMuted,
-                Top = 240, Left = 18, AutoSize = true,
+                Top = 290, Left = 18, AutoSize = true,
             };
             Controls.Add(regexLabel);
 
@@ -84,7 +114,7 @@ namespace LogAnzlyzer.Forms
             _regexBox.BackColor = t.InputBg;
             _regexBox.ForeColor = t.Text;
             _regexBox.BorderStyle = BorderStyle.FixedSingle;
-            _regexBox.Top = 260; _regexBox.Left = 18; _regexBox.Width = 604;
+            _regexBox.Top = 310; _regexBox.Left = 18; _regexBox.Width = 604;
             Controls.Add(_regexBox);
 
             // Buttons (footer)

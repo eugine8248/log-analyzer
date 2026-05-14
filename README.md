@@ -48,6 +48,12 @@ For other formats, edit the regex in the **Confirm timestamp position** dialog
 that appears after opening a file. The default regex captures the standard
 ISO-8601-like format above.
 
+## Documentation
+
+See [`docs/FAQ.md`](docs/FAQ.md) for answers to common questions about log
+formats, file size limits, exports, comparing/diffing logs, and the SQLite
+cache location.
+
 ## Architecture
 
 ```
@@ -90,7 +96,8 @@ The `tokens.css` in there is the canonical color/typography source.
 - [x] v0.2 — drag-select timestamp bounds, custom titlebar, recent files, export PNG/CSV
 - [x] v0.3 — large-file streaming with cancellable progress + multi-file comparison view
 - [x] v0.4 — auto-update notifier + GitHub Actions CI/CD + code-signing infrastructure
-- [ ] v0.5 — in-app diff between two logs, regex pattern library, FAQ docs
+- [x] v0.5 — in-app diff between two logs, regex pattern library, FAQ docs
+- [ ] v0.6 — Settings UI for "check for updates" + UI toggle for theme + recent-files limit
 
 ## Auto-Update
 
