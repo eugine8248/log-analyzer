@@ -29,26 +29,23 @@ tech_stack:
 dist_path: C:/Users/eugin/projects/log-analyzer/dist/
 git_initialized: true
 git_initial_commit: "59e1727"
-git_latest_commit: "e119896"
+git_latest_commit: "158c496"
 git_tags:
   - v0.1.0
   - v0.1.1
   - v0.2.0
   - v0.3.0
   - v0.4.0
+  - v0.5.0
 github_repo: "https://github.com/eugine8248/log-analyzer"
 github_releases:
-  - "https://github.com/eugine8248/log-analyzer/releases/tag/v0.1.0 (manual upload)"
-  - "https://github.com/eugine8248/log-analyzer/releases/tag/v0.1.1 (manual upload)"
-  - "https://github.com/eugine8248/log-analyzer/releases/tag/v0.2.0 (manual upload)"
-  - "https://github.com/eugine8248/log-analyzer/releases/tag/v0.3.0 (manual upload)"
-  - "https://github.com/eugine8248/log-analyzer/releases/tag/v0.4.0 (CI/CD: GitHub Actions release.yml)"
-ci_status:
-  build_workflow: "https://github.com/eugine8248/log-analyzer/actions/workflows/build.yml"
-  release_workflow: "https://github.com/eugine8248/log-analyzer/actions/workflows/release.yml"
-  last_build_run: "success — 2026-05-14"
-  last_release_run: "success — 2026-05-14 (v0.4.0 published with asset)"
-debug_sessions: 4
-last_debug_summary: "Session #4 — v0.4 features: auto-update notifier, GitHub Actions CI/CD (both workflows verified green), code-signing infrastructure (no cert acquired)."
-last_handoff_summary: "v0.4.0 released by GitHub Actions automatically. Future releases = `git tag -a vX.Y.Z && git push --tags`."
-last_updated: "2026-05-14T08:35:00Z"
+  - "v0.1.0 — manual upload"
+  - "v0.1.1 — manual upload"
+  - "v0.2.0 — manual upload"
+  - "v0.3.0 — manual upload"
+  - "v0.4.0 — first CI/CD release"
+  - "v0.5.0 — CI/CD"
+debug_sessions: 5
+last_debug_summary: "Session #5 — v0.5 features: regex pattern library (8 presets), in-app diff (Ctrl+Shift+D, side-by-side stats with delta column), FAQ docs."
+last_handoff_summary: "v0.5.0 released by GitHub Actions. CI build + release both completed in ~1 minute. Pending v0.6 (settings UI surface)."
+last_updated: "2026-05-14T08:55:00Z"
